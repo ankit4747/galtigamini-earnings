@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Galtigamini Transport Manager</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+body { font-family: Arial; background:#f4f6f8; padding:20px; }
+.box { background:#fff; padding:20px; max-width:900px; margin:auto; border-radius:10px; }
+h2,h3 { text-align:center; margin:5px; }
+label { font-weight:bold; }
+input, select { width:100%; padding:8px; margin:6px 0 15px; }
+button { padding:12px; margin-top:8px; width:100%; border:none; border-radius:8px; font-size:16px; cursor:pointer; }
+.green { background:#16a34a; color:white; }
+.blue { background:#2563eb; color:white; }
+.red { background:#dc2626; color:white; }
+.section { margin-top:20px; padding:15px; background:#f9fafb; border-radius:8px; }
+.row { display:flex; justify-content:space-between; padding:4px 0; }
+.highlight { background:#fde68a; padding:8px; border-radius:6px; font-weight:bold; }
+.small { font-size:13px; }
+.profit { color:green; font-weight:bold; }
+.loss { color:red; font-weight:bold; }
+.grid { display:grid; grid-template-columns:1fr 1fr; gap:15px; }
+.hidden { display:none; }
+</style>
+</head>
+
+<body>
+
+<div class="box">
+<h2>GALTIGAMINI TOUR'S & TRAVEL</h2>
+<h3>Transport Business Management App</h3>
+
+<div class="grid">
+<div>
+<label>Date Range</label>
+<input type="date" id="from">
+<input type="date" id="to">
+</div>
+
+<div>
+<label>App</label>
+<select id="app">
+<option>Uber</option>
+<option>Rapido</option>
+<option>Ola</option>
+</select>
+
+<label>Vehicle</label>
+<select id="vehicle">
+<option>GLANZA</option>
+<option>ERTIGA</option>
+</select>
+
+<label>Driver</label>
+<select id="driver">
+<option>ASHOK</option>
+<option>RAMESH</option>
+<option>SURESH</option>
+</select>
+</div>
+</div>
+
+<hr>
+
+<div class="grid">
+<input id="earning" type="number" placeholder="Total App Earning">
+<input id="platform" type="number" placeholder="Platform Fee">
+<input id="offline" type="number" placeholder="Offline Earning">
+<input id="cash" type="number" placeholder="Cash Collection">
+<input id="commission" type="number" value="25" placeholder="Commission %">
+<input id="cng" type="number" placeholder="CNG Expense">
+<input id="other" type="number" placeholder="Other Expenses">
+</div>
+
+<button class="green" onclick="add()">Add Entry</button>
+
+<div class="section" id="summary"></div>
+<div class="section" id="analytics"></div>
+
+<button class="blue" onclick="downloadPNG()">Download Summary PNG</button>
+<button class="blue" onclick="downloadExcel()">Download Excel</button>
+<button class="red" onclick="closeMonth()">Close Month</button>
+
+</div>
+
+<script>
+let data = JSON.parse(localStorage.getItem("galtigamini")||"[]");
+
+function add(){
+ const e={
+  from:from.value,to:to.value,app:app.value,
+  vehicle:vehicle.value,driver:driver.value,
+  earning:+earning.value||0,platform:+platform.value||0,
+  offline:+offline.value||0,cash:+cash.value||0,
+  rate:+commission.value||25,cng:+cng.value||0,other:+other.value||0
+ };
+ data.push(e);
+ localStorage.setItem("galtigamini",JSON.stringify(data));
+ render();
+}
+
+function render(){
+ let totalE=0,totalCash=0,totalProfit=0;
+ let vProfit={GLANZA:0,ERTIGA:0};
+ let dProfit={};
+
+ data.forEach(e=>{
+  const comm=((e.earning-e.platform)+e.offline)*(e.rate/100);
+  const profit=e.earning+e.offline-e.platform-comm-e.cng-e.other;
+
+  totalE+=e.earning+e.offline;
+  totalCash+=e.cash;
+  totalProfit+=profit;
+  vProfit[e.vehicle]+=profit;
+  dProfit[e.driver]=(dProfit[e.driver]||0)+profit;
+ });
+
+ summary.innerHTML=`
+ <div id="png">
+ <h3>Consolidated Summary</h3>
+ <div class="row"><span>Total Earnings</span><span>₹${totalE}</span></div>
+ <div class="row"><span>Total Cash</span><span>₹${totalCash}</span></div>
+ <div class="row highlight"><span>OWNER PROFIT</span><span>₹${totalProfit.toFixed(2)}</span></div>
+ </div>
+ `;
+
+ analytics.innerHTML=`
+ <h3>Analytics</h3>
+ <div class="row"><span>GLANZA Profit</span><span>₹${vProfit.GLANZA.toFixed(2)}</span></div>
+ <div class="row"><span>ERTIGA Profit</span><span>₹${vProfit.ERTIGA.toFixed(2)}</span></div>
+ <hr>
+ ${Object.keys(dProfit).map(d=>`
+   <div class="row"><span>${d} Profit</span><span>₹${dProfit[d].toFixed(2)}</span></div>
+ `).join("")}
+ `;
+}
+
+function downloadPNG(){
+ html2canvas(document.getElementById("png")).then(c=>{
+  const a=document.createElement("a");
+  a.href=c.toDataURL();
+  a.download="Monthly_Summary.png";
+  a.click();
+ });
+}
+
+function downloadExcel(){
+ const wb=XLSX.utils.book_new();
+ const ws=XLSX.utils.json_to_sheet(data);
+ XLSX.utils.book_append_sheet(wb,ws,"Data");
+ XLSX.writeFile(wb,"Galtigamini_Data.xlsx");
+}
+
+function closeMonth(){
+ if(confirm("Close month & reset data?")){
+  downloadPNG();
+  downloadExcel();
+  data=[];
+  localStorage.removeItem("galtigamini");
+  render();
+ }
+}
+
+render();
+</script>
+
+</body>
+</html>
